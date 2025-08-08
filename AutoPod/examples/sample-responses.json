@@ -1,0 +1,27 @@
+{
+  "example_request": {
+    "topic": "Business case study of Netflix"
+  },
+  "example_response": {
+    "summary": "# Netflix Business Case Study\n\n**Company Overview**\nNetflix Inc. transformed from a DVD-by-mail rental service founded in 1997 by Reed Hastings and Marc Randolph into the world's leading streaming entertainment platform.\n\n**Key Business Milestones:**\n- **1997-2006**: DVD-by-mail subscription model\n- **2007**: Launched streaming service as free add-on\n- **2013**: Began original content production with \"House of Cards\"\n- **2016**: Expanded globally to 190+ countries\n- **2021**: Reached 200+ million subscribers worldwide\n\n**Revenue Growth:**\n- 2007: $1.2 billion revenue\n- 2015: $6.8 billion revenue\n- 2021: $29.7 billion revenue\n\n**Strategic Innovations:**\n- Data-driven content recommendations\n- Binge-watching model\n- Original content investment ($15+ billion annually)\n- Global content localization\n- Technology infrastructure (AWS partnership)\n\n**Competitive Advantages:**\n- First-mover advantage in streaming\n- Personalized user experience\n- Content library breadth and exclusivity\n- Global distribution network\n- Brand recognition and customer loyalty",
+    
+    "explanation": "Think of Netflix like the ultimate evolution of your local video store, but instead of driving there and hoping they have what you want, everything comes to you instantly.\n\nImagine if Blockbuster had seen the future coming. Netflix started as a mail-order DVD service – like having a video store mail you movies instead of you going there. But the brilliant part was when they realized the internet could deliver movies instantly.\n\nHere's what made Netflix special: they didn't just copy what TV networks were doing. Instead, they asked \"What if people could watch entire seasons at once?\" This created the \"binge-watching\" culture we know today.\n\nNetflix also became like a movie studio, but smarter. Instead of guessing what people might like, they used data from millions of viewers to know exactly what to create. It's like having a crystal ball that tells you what movies to make.\n\nThey expanded globally by understanding that a great story in Korea (like Squid Game) could captivate audiences worldwide. This wasn't just American entertainment going global – it was global entertainment for everyone.\n\nThe result? Netflix changed how we think about television, created new viewing habits, and proved that technology companies could beat traditional media companies at their own game by simply understanding what customers really wanted.",
+    
+    "script": "Hey everyone, and welcome back to Business Breakdown! Today we're diving into one of the most incredible business transformations of the 21st century – Netflix! 🍿\n\n[PAUSE]\n\nNow, I want you to imagine it's 1997. You're probably still using dial-up internet, and if you want to watch a movie, you're driving to Blockbuster, hoping they have what you want in stock. Enter two guys named Reed Hastings and Marc Randolph who just had the wildest idea...\n\n\"What if we mail people DVDs?\"\n\nI know, I know – it sounds crazy now! But this simple idea would eventually destroy Blockbuster and change entertainment forever.\n\n[PAUSE]\n\nBut here's where it gets really interesting. Netflix didn't just stop at mailing DVDs. In 2007, when most people thought streaming was impossible, they launched their streaming service. And get this – they made it FREE for existing customers!\n\nTalk about playing the long game! 🎯\n\n[PAUSE]\n\nNow, here's my favorite part of the Netflix story. In 2013, they did something that seemed absolutely insane – they started making their own shows. People said, \"You're a tech company! What do you know about making TV?\"\n\nWell, turns out they knew something everyone else didn't. They had DATA. They knew exactly what their viewers wanted because they could see what everyone was watching!\n\n[PAUSE]\n\nFast forward to today, and Netflix spends over $15 BILLION a year on original content. That's more than most countries' entire entertainment budgets!\n\nWhat can we learn from Netflix's incredible journey? Sometimes the best way to win isn't to play by the existing rules – it's to create entirely new rules.\n\nWhat do you think? Did Netflix change how you watch TV? Let me know in the comments below, and don't forget to subscribe for more amazing business stories!\n\n[PAUSE]\n\nSee you in the next one! 👋"
+  },
+  "validation_examples": {
+    "valid_topics": [
+      "History of artificial intelligence",
+      "Climate change and renewable energy",
+      "Evolution of social media platforms",
+      "Space exploration milestones",
+      "Cryptocurrency and blockchain technology"
+    ],
+    "invalid_topics": {
+      "too_short": "AI",
+      "too_long": "This topic is way too long and exceeds the maximum character limit that we have set for our API endpoint which is designed to prevent abuse and ensure reasonable response times while maintaining the quality of our AI-generated content across all three different content types including summaries explanations and scripts which are generated in parallel using our sophisticated prompt engineering approach that leverages the power of OpenAI's language models to create engaging educational and entertaining content for our users who want to learn about various topics in different formats",
+      "empty": "",
+      "missing_field": "Request without topic field"
+    }
+  }
+}
