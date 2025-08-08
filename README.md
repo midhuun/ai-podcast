@@ -1,1 +1,3 @@
-# ai-podcast
+# AutoPod
+
+AI-powered podcast automation platform.
