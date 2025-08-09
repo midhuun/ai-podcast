@@ -1,0 +1,52 @@
+# Robots.txt for AutoPod - AI-Powered Podcast Generator
+
+User-agent: *
+Allow: /
+
+# Allow search engines to index all content
+Allow: /features
+Allow: /generate
+Allow: /login
+Allow: /signup
+Allow: /pricing
+Allow: /faq
+Allow: /testimonials
+
+# Disallow sensitive or unnecessary paths
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_next/
+Disallow: /src/
+Disallow: /node_modules/
+Disallow: /*.json$
+Disallow: /*.js$
+Disallow: /*.css$
+Disallow: /*.map$
+
+# Allow important assets
+Allow: /autopod-logo.jpg
+Allow: /favicon.ico
+Allow: /android-chrome-*.png
+Allow: /apple-touch-icon.png
+Allow: /site.webmanifest
+
+# Sitemap location
+Sitemap: https://autopod.ai/sitemap.xml
+
+# Crawl delay (optional - be respectful to server resources)
+Crawl-delay: 1
+
+# Specific rules for major search engines
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: facebookexternalhit/
+Allow: /
+
+User-agent: Twitterbot
+Allow: /

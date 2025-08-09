@@ -1,0 +1,9 @@
+Contact: mailto:security@autopod.ai
+Contact: https://autopod.ai/security
+Encryption: https://autopod.ai/pgp-key.asc
+Acknowledgments: https://autopod.ai/hall-of-fame
+Policy: https://autopod.ai/security-policy
+Hiring: https://autopod.ai/careers
+
+# AutoPod Security Contact Information
+# Please report security vulnerabilities responsibly

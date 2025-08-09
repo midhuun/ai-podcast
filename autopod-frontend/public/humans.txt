@@ -1,0 +1,28 @@
+# humanstxt.org/
+# The humans responsible & technology colophon
+
+# TEAM
+
+    Developer: AutoPod Team
+    Contact: support [at] autopod.ai
+    Twitter: @autopod
+    From: AI-Powered Future
+
+# THANKS
+
+    All the open source contributors
+    The AI and podcast community
+    Early beta users and testers
+
+# TECHNOLOGY COLOPHON
+
+    HTML5, CSS3, JavaScript
+    React, TypeScript, Vite
+    TailwindCSS for styling
+    GSAP for animations
+    AI/ML for podcast generation
+    
+    Standards: W3C, Schema.org
+    Components: Responsive design
+    Fonts: Web fonts optimized
+    Tools: Modern build pipeline

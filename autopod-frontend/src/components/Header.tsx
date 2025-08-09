@@ -11,10 +11,12 @@ function Header() {
   return (
     <header className="px-4 sm:px-6 py-4 border-b border-gray-800 bg-black/95 backdrop-blur-sm sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link to="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-white rounded flex items-center justify-center transition-transform duration-300 hover:scale-110">
-            <span className="text-black font-bold text-sm">A</span>
-          </div>
+        <Link to="/" className="flex items-center space-x-3">
+          <img 
+            src="/autopod-logo.jpg" 
+            alt="AutoPod Logo" 
+            className="w-10 h-10 rounded-lg object-cover transition-transform duration-300 hover:scale-110 shadow-lg"
+          />
           <span className="text-lg sm:text-xl font-semibold">AutoPod</span>
         </Link>
         
