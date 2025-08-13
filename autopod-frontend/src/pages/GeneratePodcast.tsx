@@ -4,7 +4,7 @@ import GeneratingAnimation from '../components/GeneratingAnimation';
 import MagneticButton from '../components/MagneticButton';
 import { gsap } from '../lib/gsap';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://autopod-be.vercel.app';
 
 type LengthPreset = 'short' | 'medium' | 'long';
 

@@ -20,10 +20,24 @@ async function bootstrap() {
     }),
   );
 
-  // Enable CORS for frontend integration
+  // Enable CORS with explicit allowlist
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://autopod-be.vercel.app',
+  ];
   app.enableCors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization',
+    exposedHeaders: 'Content-Disposition',
   });
 
   // Get port from config
