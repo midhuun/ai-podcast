@@ -29,12 +29,21 @@ export class ScriptController {
     this.logger.log(`Received request to generate script for topic: ${createScriptDto.topic} (${createScriptDto.minutes || 2} minutes)`);
 
     try {
-      const audioBuffer = await this.scriptService.generateScript(createScriptDto.topic, createScriptDto.minutes || 2);
+      const audioBuffer = await this.scriptService.generateScript(
+        createScriptDto.topic,
+        createScriptDto.minutes || 2,
+        {
+          backgroundMusic: createScriptDto.backgroundMusic,
+          bgmUrl: createScriptDto.bgmUrl,
+          bgmVolumeDb: createScriptDto.bgmVolumeDb,
+          ducking: createScriptDto.ducking,
+        }
+      );
       this.logger.log('Successfully generated audio content');
 
       res.set({
-        'Content-Type': 'audio/wav',
-        'Content-Disposition': 'attachment; filename="topic-script.wav"',
+        'Content-Type': 'audio/mpeg',
+        'Content-Disposition': 'attachment; filename="topic-script.mp3"',
         'Content-Length': audioBuffer.length,
       });
 

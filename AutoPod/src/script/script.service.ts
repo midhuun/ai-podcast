@@ -2,6 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AiService } from '../ai/ai.service';
 import { TtsService } from '../tts/tts.service';
 
+interface AudioOptions {
+  backgroundMusic?: boolean;
+  bgmUrl?: string;
+  bgmVolumeDb?: number;
+  ducking?: boolean;
+}
+
 @Injectable()
 export class ScriptService {
   private readonly logger = new Logger(ScriptService.name);
@@ -11,7 +18,7 @@ export class ScriptService {
     private readonly ttsService: TtsService,
   ) {}
 
-  async generateScript(topic: string, minutes: number = 2): Promise<Buffer> {
+  async generateScript(topic: string, minutes: number = 2, audioOptions?: AudioOptions): Promise<Buffer> {
     this.logger.log(`Processing script generation for topic: ${topic} (${minutes} minutes)`);
 
     // Validate and sanitize topic
@@ -23,7 +30,8 @@ export class ScriptService {
       const maxAttempts = 3;
       let attempt = 0;
       let currentTarget = targetMinutes;
-      let content = await this.aiService.generateContent(sanitizedTopic, currentTarget);
+      // Use token-aware path: generate ONLY script and mood to minimize TPM
+      let content = await this.aiService.generateScriptAndMood(sanitizedTopic, currentTarget) as any;
 
       while (attempt < maxAttempts) {
         attempt += 1;
@@ -39,8 +47,8 @@ export class ScriptService {
         // Adjust target minutes proportionally and regenerate
         const ratio = targetMinutes / Math.max(estimatedMinutes, 0.5);
         currentTarget = Math.max(1, Math.min(20, Math.round(currentTarget * ratio)));
-        this.logger.log(`Regenerating script with adjusted target minutes: ${currentTarget}`);
-        content = await this.aiService.generateContent(sanitizedTopic, currentTarget);
+          this.logger.log(`Regenerating script with adjusted target minutes: ${currentTarget}`);
+          content = await this.aiService.generateScriptAndMood(sanitizedTopic, currentTarget) as any;
       }
 
       this.logger.log('Script generation completed successfully with duration targeting');
@@ -51,7 +59,25 @@ export class ScriptService {
         this.logger.log('Generating audio from script...');
         this.logger.log(`Script length: ${content.script.length} characters`);
         this.logger.log(`Script preview: "${content.script.substring(0, 200)}..."`);
-        audioData = await this.ttsService.generateAudio(content.script, minutes);
+        // Map AI mood to local bgm path if backgroundMusic enabled and no explicit URL
+        let effectiveOptions = audioOptions;
+        if ((audioOptions?.backgroundMusic ?? true) && !audioOptions?.bgmUrl) {
+          const moodToFile: Record<string, string> = {
+            happy: 'happy.mp3',
+            sad: 'sad.mp3',
+            relaxing: 'relaxing.mp3',
+            suspense: 'suspense.mp3',
+            motivate: 'motivate.mp3',
+          };
+          const mood = (content as any).mood as string | undefined;
+          if (mood && moodToFile[mood]) {
+            // absolute path to moods folder
+            const moodsPath = require('path').resolve(process.cwd(), 'src/moods', moodToFile[mood]);
+            effectiveOptions = { ...audioOptions, bgmUrl: `file://${moodsPath}` };
+            this.logger.log(`Using mood-based background: ${mood} -> ${moodsPath}`);
+          }
+        }
+        audioData = await this.ttsService.generateAudio(content.script, minutes, effectiveOptions);
         if (audioData) {
           this.logger.log('Audio generation completed successfully');
         } else {

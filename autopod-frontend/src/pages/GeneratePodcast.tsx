@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import CustomAudioPlayer from '../components/CustomAudioPlayer';
-import SkeletonLoader from '../components/SkeletonLoader';
 import GeneratingAnimation from '../components/GeneratingAnimation';
 import MagneticButton from '../components/MagneticButton';
 import { gsap } from '../lib/gsap';
@@ -22,6 +21,7 @@ function GeneratePodcast({ compact = false }: GeneratePodcastProps) {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  // Backend decides mood and music. Keep minimal controls off the UI.
 
   const suggestions = [
     'The rise of electric vehicles in 2025',
@@ -64,7 +64,11 @@ function GeneratePodcast({ compact = false }: GeneratePodcastProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ topic, minutes }),
+        body: JSON.stringify({
+          topic,
+          minutes,
+          backgroundMusic: true,
+        }),
       });
 
       clearInterval(progressInterval);
@@ -143,6 +147,8 @@ function GeneratePodcast({ compact = false }: GeneratePodcastProps) {
               ))}
             </div>
           </div>
+          
+          {/* Music is auto-selected by backend based on mood; no UI here. */}
         </div>
         
         {error && (

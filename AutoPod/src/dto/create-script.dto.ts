@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MinLength, MaxLength, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, MaxLength, IsNumber, Min, Max, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateScriptDto {
   @IsString()
@@ -11,4 +11,20 @@ export class CreateScriptDto {
   @Min(1, { message: 'Minutes must be at least 1' })
   @Max(20, { message: 'Minutes cannot exceed 20' })
   minutes?: number = 2;
+
+  @IsOptional()
+  @IsBoolean()
+  backgroundMusic?: boolean;
+
+  @IsOptional()
+  @IsString()
+  bgmUrl?: string;
+
+  @IsOptional()
+  @IsNumber()
+  bgmVolumeDb?: number; // e.g., -18 (quieter background)
+
+  @IsOptional()
+  @IsBoolean()
+  ducking?: boolean; // enable sidechain ducking so music dips under voice
 }

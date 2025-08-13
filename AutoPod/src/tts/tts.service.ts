@@ -43,7 +43,11 @@ export class TtsService {
     this.logger.log('TTS Service initialized with Unreal Speech API');
   }
 
-  async generateAudio(text: string, durationMinutes: number = 2): Promise<Buffer | null> {
+  async generateAudio(
+    text: string,
+    durationMinutes: number = 2,
+    audioOptions?: { backgroundMusic?: boolean; bgmUrl?: string; bgmVolumeDb?: number; ducking?: boolean }
+  ): Promise<Buffer | null> {
     if (!text || text.trim().length === 0) {
       this.logger.warn('TTS generation skipped - empty text provided');
       return null;
@@ -63,10 +67,24 @@ export class TtsService {
       // Check if text needs to be chunked
       if (cleanText.length <= chunkSize) {
         // Single chunk - direct API call
-        return await this.generateSingleAudio(cleanText);
+        const voiceOnly = await this.generateSingleAudio(cleanText);
+        if (!voiceOnly) {
+          return null;
+        }
+        if (audioOptions?.backgroundMusic) {
+          return await this.mixWithBackgroundMusic(voiceOnly, audioOptions);
+        }
+        return voiceOnly;
       } else {
         // Multiple chunks - split, generate, and merge
-        return await this.generateChunkedAudio(cleanText, chunkSize);
+        const merged = await this.generateChunkedAudio(cleanText, chunkSize);
+        if (!merged) {
+          return null;
+        }
+        if (audioOptions?.backgroundMusic) {
+          return await this.mixWithBackgroundMusic(merged, audioOptions);
+        }
+        return merged;
       }
     } catch (error) {
       this.logger.error('Error generating audio:', error);
@@ -147,14 +165,20 @@ export class TtsService {
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
         const uri = await this.callUnrealSpeechAPI(text);
-        if (!uri) throw new Error('No OutputUri from TTS');
+        if (!uri) {
+          throw new Error('No OutputUri from TTS');
+        }
         const buf = await this.downloadAudioFromUri(uri);
-        if (!buf) throw new Error('Download failed');
+        if (!buf) {
+          throw new Error('Download failed');
+        }
         return buf;
       } catch (err) {
         const isLast = attempt === attempts;
         this.logger.warn(`Chunk generation attempt ${attempt}/${attempts} failed: ${err instanceof Error ? err.message : err}`);
-        if (isLast) return null;
+        if (isLast) {
+          return null;
+        }
         await new Promise(r => setTimeout(r, backoffMs * attempt));
       }
     }
@@ -376,6 +400,155 @@ export class TtsService {
         this.cleanupTempFiles(tempDir);
         reject(e);
       }
+    });
+  }
+
+  private async mixWithBackgroundMusic(
+    voiceBuffer: Buffer,
+    options: { bgmUrl?: string; bgmVolumeDb?: number; ducking?: boolean }
+  ): Promise<Buffer> {
+    const tempDir = path.join(os.tmpdir(), `tts-mix-${Date.now()}`);
+    const voiceMp3Path = path.join(tempDir, 'voice.mp3');
+    const voiceWavPath = path.join(tempDir, 'voice.wav');
+    const musicPath = path.join(tempDir, 'music.mp3');
+    const musicWavPath = path.join(tempDir, 'music.wav');
+    const musicLongWavPath = path.join(tempDir, 'music_long.wav');
+    const mixedPath = path.join(tempDir, 'mixed.mp3');
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    try {
+      // Write voice buffer (mp3) and convert to WAV for consistent processing
+      fs.writeFileSync(voiceMp3Path, voiceBuffer);
+      await new Promise<void>((res, rej) => {
+        ffmpeg(voiceMp3Path)
+          .audioCodec('pcm_s16le')
+          .audioFrequency(44100)
+          .audioChannels(2)
+          .on('end', () => res())
+          .on('error', (e: any) => rej(e))
+          .save(voiceWavPath);
+      });
+
+      // Determine music source
+      let bgmBuffer: Buffer | null = null;
+      if (options.bgmUrl) {
+        if (options.bgmUrl.startsWith('file://')) {
+          const localPath = options.bgmUrl.replace('file://', '');
+          this.logger.log(`Reading local background music: ${localPath}`);
+          try {
+            bgmBuffer = fs.readFileSync(localPath);
+          } catch (e) {
+            this.logger.error(`Failed to read local bgm file: ${localPath}`, e);
+            return voiceBuffer;
+          }
+        } else {
+          this.logger.log(`Downloading background music from: ${options.bgmUrl}`);
+          const resp = await firstValueFrom(
+            this.httpService.get(options.bgmUrl, { responseType: 'arraybuffer', timeout: 60000 })
+          );
+          bgmBuffer = Buffer.from(resp.data);
+        }
+      } else {
+        this.logger.warn('No bgmUrl provided for background music; returning voice-only');
+        return voiceBuffer;
+      }
+      fs.writeFileSync(musicPath, bgmBuffer);
+
+      await new Promise<void>((res, rej) => {
+        ffmpeg(musicPath)
+          .audioCodec('pcm_s16le')
+          .audioFrequency(44100)
+          .audioChannels(2)
+          .on('end', () => res())
+          .on('error', (e: any) => rej(e))
+          .save(musicWavPath);
+      });
+
+      // Build a music bed long enough by concatenating repeats, then trim to voice duration
+      const bgVolume = typeof options.bgmVolumeDb === 'number' ? options.bgmVolumeDb : -18;
+      const voiceDuration = await this.getAudioDuration(voiceWavPath);
+      const musicDuration = await this.getAudioDuration(musicWavPath);
+      const repeats = Math.max(1, Math.ceil(voiceDuration / Math.max(musicDuration, 0.1)) + 1);
+
+      // Concatenate music repeats into a long bed
+      await new Promise<void>((res, rej) => {
+        const concatCmd = ffmpeg();
+        for (let i = 0; i < repeats; i++) {
+          concatCmd.input(musicWavPath);
+        }
+        concatCmd
+          .complexFilter([`concat=n=${repeats}:v=0:a=1`])
+          .audioCodec('pcm_s16le')
+          .audioFrequency(44100)
+          .audioChannels(2)
+          .on('end', () => res())
+          .on('error', (e: any) => rej(e))
+          .save(musicLongWavPath);
+      });
+
+      // Mix voice with trimmed and leveled music bed + ducking + normalization
+      await new Promise<void>((res, rej) => {
+        const mixCmd = ffmpeg();
+        mixCmd.input(voiceWavPath);
+        mixCmd.input(musicLongWavPath);
+
+        const filters: any[] = [];
+        // 0: voice, 1: long music
+        // Prepare music: trim to voice duration, mild EQ to avoid masking, fade in/out, set level
+        const fadeOutStart = Math.max(0, voiceDuration - 1.5);
+        filters.push({ filter: 'atrim', options: { duration: voiceDuration }, inputs: '1:a', outputs: 'm1' });
+        filters.push({ filter: 'highpass', options: { f: 120 }, inputs: 'm1', outputs: 'm2' });
+        filters.push({ filter: 'lowpass', options: { f: 8000 }, inputs: 'm2', outputs: 'm3' });
+        filters.push({ filter: 'afade', options: { t: 'in', st: 0, d: 2 }, inputs: 'm3', outputs: 'm4' });
+        filters.push({ filter: 'afade', options: { t: 'out', st: fadeOutStart, d: 1.5 }, inputs: 'm4', outputs: 'm5' });
+        filters.push({ filter: 'volume', options: { volume: `${bgVolume}dB` }, inputs: 'm5', outputs: 'music_vol' });
+
+        if (options.ducking) {
+          filters.push({
+            filter: 'sidechaincompress',
+            options: { threshold: '0.03', ratio: 8, attack: 5, release: 200, makeup: 0 },
+            inputs: ['music_vol', '0:a'],
+            outputs: 'ducked',
+          });
+          filters.push({ filter: 'amix', options: { inputs: 2, dropout_transition: 3 }, inputs: ['0:a', 'ducked'], outputs: 'mixed1' });
+        } else {
+          filters.push({ filter: 'amix', options: { inputs: 2, dropout_transition: 3 }, inputs: ['0:a', 'music_vol'], outputs: 'mixed1' });
+        }
+
+        // Post-mix dynamics and loudness normalization for podcasts
+        filters.push({ filter: 'dynaudnorm', options: { f: 150, g: 15, m: 15 }, inputs: 'mixed1', outputs: 'mixed2' });
+        filters.push({ filter: 'loudnorm', options: { I: -16, TP: -1.5, LRA: 11 }, inputs: 'mixed2', outputs: 'mixed' });
+
+        mixCmd
+          .complexFilter(filters)
+          .audioCodec('libmp3lame')
+          .audioBitrate('320k')
+          .outputOptions(['-map', '[mixed]'])
+          .on('end', () => res())
+          .on('error', (e: any) => rej(e))
+          .save(mixedPath);
+      });
+
+      const mixed = fs.readFileSync(mixedPath);
+      this.cleanupTempFiles(tempDir);
+      return mixed;
+    } catch (e) {
+      this.logger.error('Error mixing with background music:', e);
+      this.cleanupTempFiles(tempDir);
+      // Fallback to voice only if mixing failed
+      return voiceBuffer;
+    }
+  }
+
+  private async getAudioDuration(filePath: string): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
+      ffmpeg.ffprobe(filePath, (err: any, metadata: any) => {
+        if (err) {
+          return reject(err);
+        }
+        const duration = metadata?.format?.duration || 0;
+        resolve(duration);
+      });
     });
   }
 

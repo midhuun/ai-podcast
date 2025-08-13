@@ -28,28 +28,38 @@ export class AiService {
     summary: string;
     explanation: string;
     script: string;
+    mood: 'happy' | 'sad' | 'relaxing' | 'suspense' | 'motivate';
   }> {
     try {
       this.logger.log(`Generating content for topic: ${topic} (${minutes} minutes)`);
 
-      // Create all three prompts
+      // Create prompts
       const summaryPrompt = PROMPT_TEMPLATES.SUMMARY(topic);
       const explanationPrompt = PROMPT_TEMPLATES.EXPLANATION(topic);
       const scriptPrompt = PROMPT_TEMPLATES.SCRIPT(topic, minutes);
+      const moodPrompt = PROMPT_TEMPLATES.MOOD_CLASSIFIER(topic);
 
       // Execute all three requests in parallel
-      const [summaryResponse, explanationResponse, scriptResponse] = await Promise.all([
+      // Parallel calls can trigger TPM limits; keep script+mood parallel for speed but SUMMARY/EXPLANATION may be removed if not needed
+      const [summaryResponse, explanationResponse, scriptResponse, moodResponse] = await Promise.all([
         this.callOpenAI(summaryPrompt, 'summary'),
         this.callOpenAI(explanationPrompt, 'explanation'),
         this.callOpenAI(scriptPrompt, 'script', minutes),
+        this.callOpenAI(moodPrompt, 'mood'),
       ]);
 
       this.logger.log('Successfully generated all content types');
+
+      // sanitize mood to the allowed set
+      const rawMood = moodResponse.trim().toLowerCase();
+      const allowed: Array<'happy'|'sad'|'relaxing'|'suspense'|'motivate'> = ['happy','sad','relaxing','suspense','motivate'];
+      const mood = (allowed.find(m => rawMood.includes(m)) ?? 'relaxing');
 
       return {
         summary: summaryResponse,
         explanation: explanationResponse,
         script: scriptResponse,
+        mood,
       };
     } catch (error) {
       this.logger.error('Error generating content:', error);
@@ -57,46 +67,80 @@ export class AiService {
     }
   }
 
-  private async callOpenAI(prompt: string, type: string, minutes?: number): Promise<string> {
+  async generateScriptAndMood(topic: string, minutes: number = 2): Promise<{
+    script: string;
+    mood: 'happy' | 'sad' | 'relaxing' | 'suspense' | 'motivate';
+  }> {
     try {
-      this.logger.debug(`Calling OpenAI for ${type}${minutes ? ` (${minutes} minutes)` : ''}`);
+      this.logger.log(`Generating script+mood for topic: ${topic} (${minutes} minutes)`);
 
-      // Calculate max_tokens based on content type and duration
-      let maxTokens = 1000; // Default for summary and explanation
-      
-      if (type === 'script' && minutes) {
-        // For scripts: approximately 150 words per minute, ~1.3 tokens per word
-        // Add buffer for quality and context
-        maxTokens = Math.floor(Math.max(1000, Math.min(minutes * 150 * 1.3 * 1.5, 4000)));
-        this.logger.debug(`Using ${maxTokens} max_tokens for ${minutes}-minute script`);
-      }
+      const scriptPrompt = PROMPT_TEMPLATES.SCRIPT(topic, minutes);
+      const moodPrompt = PROMPT_TEMPLATES.MOOD_CLASSIFIER(topic);
 
-      const response = await this.openai.chat.completions.create({
-        model: 'llama-3.1-8b-instant', // You can change this to gpt-4 or other models
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: maxTokens,
-        temperature: 0.7,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0,
-      });
+      // Run sequentially to avoid TPM spikes
+      const scriptResponse = await this.callOpenAI(scriptPrompt, 'script', minutes);
+      const moodResponse = await this.callOpenAI(moodPrompt, 'mood');
 
-      const content = response.choices[0]?.message?.content;
-      
-      if (!content) {
-        throw new Error(`No content received from OpenAI for ${type}`);
-      }
+      const rawMood = moodResponse.trim().toLowerCase();
+      const allowed: Array<'happy'|'sad'|'relaxing'|'suspense'|'motivate'> = ['happy','sad','relaxing','suspense','motivate'];
+      const mood = (allowed.find(m => rawMood.includes(m)) ?? 'relaxing');
 
-      this.logger.debug(`Successfully received ${type} content`);
-      return content.trim();
+      return { script: scriptResponse, mood };
     } catch (error) {
-      this.logger.error(`Error calling OpenAI for ${type}:`, error);
-      throw error;
+      this.logger.error('Error generating script+mood:', error);
+      throw new Error(`Failed to generate script: ${error.message}`);
     }
+  }
+
+  private async callOpenAI(prompt: string, type: string, minutes?: number): Promise<string> {
+    const maxRetries = 4;
+    let attempt = 0;
+    // Base max tokens
+    let maxTokens = 600; // tighter default to reduce TPM
+    if (type === 'script' && minutes) {
+      // ~160 wpm, ~1.2 tok/word, buffer 1.2x, and clamp to 3000
+      const estTokens = Math.floor(minutes * 160 * 1.2 * 1.2);
+      maxTokens = Math.max(800, Math.min(estTokens, 3000));
+      this.logger.debug(`Using ${maxTokens} max_tokens for ${minutes}-minute script`);
+    } else if (type === 'mood') {
+      maxTokens = 5;
+    } else if (type === 'summary' || type === 'explanation') {
+      maxTokens = 500;
+    }
+
+    while (attempt < maxRetries) {
+      attempt += 1;
+      try {
+        const response = await this.openai.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: maxTokens,
+          temperature: type === 'mood' ? 0 : 0.7,
+          top_p: 1,
+          frequency_penalty: 0,
+          presence_penalty: 0,
+        });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error(`No content received from OpenAI for ${type}`);
+        }
+        return content.trim();
+      } catch (error: any) {
+        const msg: string = error?.message || '';
+        const is429 = String(error?.status || error?.response?.status) === '429' || msg.includes('Rate limit');
+        if (!is429 || attempt >= maxRetries) {
+          this.logger.error(`Error calling OpenAI for ${type}:`, error);
+          throw error;
+        }
+        // Parse suggested wait if available
+        const match = msg.match(/try again in\s+([0-9.]+)s/i);
+        const waitSeconds = match ? Math.ceil(parseFloat(match[1])) : 10 * attempt;
+        const waitMs = Math.min(30000, Math.max(3000, waitSeconds * 1000));
+        this.logger.warn(`429 for ${type}, retrying in ${waitMs}ms (attempt ${attempt}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+    }
+    throw new Error(`Failed to get response for ${type} after ${maxRetries} retries`);
   }
 }

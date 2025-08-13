@@ -72,9 +72,22 @@ Requirements:
  - Ensure the content is substantive enough to fill ${minutes} minutes of engaging audio
  - LENGTH RULES: Do not write fewer than ${targetWords} words. It is acceptable to exceed by up to 10% if needed for a coherent ending.
 
-Create a script that would captivate listeners and provide real value! The content should be rich enough to sustain ${minutes} minutes of quality audio content.
-`;
-  }
+      Create a script that would captivate listeners and provide real value! The content should be rich enough to sustain ${minutes} minutes of quality audio content.
+      `;
+  },
+  MOOD_CLASSIFIER: (topic: string) => [
+    'You are selecting background music mood for a podcast episode based on the user\'s topic.',
+    '',
+    'Valid moods: happy, sad, relaxing, suspense, motivate',
+    '',
+    'Task: Given the topic, choose exactly ONE mood from the valid list that best matches the vibe the listener should feel during the episode. Consider sentiment, energy, and subject tone. Avoid over-dramatizing.',
+    '',
+    `Topic: ${topic}`,
+    '',
+    'Output rules:',
+    '- Respond with only the single mood word from the list',
+    '- No punctuation, no quotes, no additional text',
+  ].join('\n'),
 };
 
 export type PromptType = keyof typeof PROMPT_TEMPLATES;
