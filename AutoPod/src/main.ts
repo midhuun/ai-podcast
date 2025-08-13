@@ -45,7 +45,7 @@ async function bootstrap() {
   
   await app.listen(port);
   
-  logger.log(`🚀 TopicScriptor is running on: http://localhost:${port}`);
+  logger.log(`🚀 TopicScriptor is running on: http://localhost:${port} (GET / shows service info)`);
   logger.log(`📝 Environment: ${configService.nodeEnv}`);
   logger.log(`🤖 OpenAI Integration: ${configService.openaiBaseUrl ? 'Custom URL' : 'OpenAI Default'}`);
   logger.log(`🎙️ Deepgram TTS: Enabled`);

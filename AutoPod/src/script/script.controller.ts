@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
@@ -18,6 +19,25 @@ export class ScriptController {
   private readonly logger = new Logger(ScriptController.name);
 
   constructor(private readonly scriptService: ScriptService) {}
+
+  @Get('health')
+  @HttpCode(HttpStatus.OK)
+  health() {
+    return { status: 'ok', service: 'AutoPod', timestamp: new Date().toISOString() };
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  root() {
+    return {
+      service: 'AutoPod',
+      status: 'running',
+      endpoints: {
+        generateScript: { path: '/generate-script', method: 'POST' },
+        health: { path: '/health', method: 'GET' },
+      },
+    };
+  }
 
   @Post('generate-script')
   @HttpCode(HttpStatus.OK)
